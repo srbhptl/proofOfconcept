@@ -1,117 +1,93 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, Text, Platform } from 'react-native';
+import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
+import { WebView } from 'react-native-webview';
 
-import React from 'react';
-import type {PropsWithChildren} from 'react';
-import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
-} from 'react-native';
+const NoCameraErrorView = () => (
+  <View style={styles.errorContainer}>
+    <Text style={styles.errorText}>No camera found. Please check your device.</Text>
+  </View>
+);
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+function App() {
+  const device = useCameraDevice('front'); // Choose the front camera
+  const { hasPermission, requestPermission } = useCameraPermission();
+  const [isCameraActive, setCameraActive] = useState(false);
 
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
+  useEffect(() => {
+    const checkPermissions = async () => {
+      if (!hasPermission) {
+        const granted = await requestPermission();
+        console.log('Camera permission granted:', granted);
+      }
+    };
 
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
+    checkPermissions();
+  }, [hasPermission, requestPermission]);
+
+  if (device == null) return <NoCameraErrorView />;
+  if (!hasPermission) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>Camera permission not granted.</Text>
+      </View>
+    );
+  }
+
+  // Your web app URL
+  const localServerUrl = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
+
   return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
+    <View style={StyleSheet.absoluteFill}>
+      {/* Conditionally render the camera based on the state */}
+      {isCameraActive && (
+        <Camera 
+          style={StyleSheet.absoluteFill} 
+          device={device} 
+          isActive={isCameraActive} 
+          onError={(error) => {
+            console.error('Camera error: ', error);
+          }}
+        />
+      )}
+      
+      <WebView
+         source={{ uri: localServerUrl }}
+         style={styles.webview}
+         javaScriptEnabled={true}
+         domStorageEnabled={true}
+         onMessage={(event) => {
+           console.log('Message from WebView:', event.nativeEvent.data);
+           if (event.nativeEvent.data === 'open_camera') {
+             setCameraActive(true); // Activate the camera when the message is received
+           }
+         }}
+        onError={(syntheticEvent) => {
+          const { nativeEvent } = syntheticEvent;
+          console.error('WebView error: ', nativeEvent);
+        }}
+        onHttpError={(syntheticEvent) => {
+          const { nativeEvent } = syntheticEvent;
+          console.error('HTTP error: ', nativeEvent);
+        }}
+      />
     </View>
   );
 }
 
-function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
-  };
-
-  return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
 const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
   },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
+  errorText: {
     fontSize: 18,
-    fontWeight: '400',
+    color: '#ff0000',
   },
-  highlight: {
-    fontWeight: '700',
+  webview: {
+    flex: 1, // Ensure the WebView takes the available space
   },
 });
 
