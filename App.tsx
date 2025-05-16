@@ -1,94 +1,114 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Text, Platform } from 'react-native';
-import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
-import { WebView } from 'react-native-webview';
+import { View, FlatList, Pressable, Image, PermissionsAndroid, Platform, Text, Button, StyleSheet } from 'react-native';
+import {
+  CameraKitContext,
+  useCameraKit,
+  CameraPreviewView,
+  Lens,
+} from '@snap/camera-kit-react-native';
 
-const NoCameraErrorView = () => (
-  <View style={styles.errorContainer}>
-    <Text style={styles.errorText}>No camera found. Please check your device.</Text>
-  </View>
-);
+export default function App() {
+  const { loadLensGroup, applyLens } = useCameraKit();
+  const [lenses, setLenses] = useState<Lens[]>([]);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-function App() {
-  const device = useCameraDevice('front'); // Choose the front camera
-  const { hasPermission, requestPermission } = useCameraPermission();
-  const [isCameraActive, setCameraActive] = useState(false);
+  const requestPermissions = async () => {
+    try {
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        ]);
+
+        return (
+          granted[PermissionsAndroid.PERMISSIONS.CAMERA] === PermissionsAndroid.RESULTS.GRANTED &&
+          granted[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] === PermissionsAndroid.RESULTS.GRANTED
+        );
+      }
+
+      return true;
+    } catch (err) {
+      console.error(err);
+      return false;
+    }
+  };
+
+  const handleStartCamera = async () => {
+    const granted = await requestPermissions();
+    if (granted) {
+      setCameraActive(true);
+    } else {
+      setError('Camera permissions denied.');
+    }
+  };
 
   useEffect(() => {
-    const checkPermissions = async () => {
-      if (!hasPermission) {
-        const granted = await requestPermission();
-        console.log('Camera permission granted:', granted);
+    const fetchLenses = async () => {
+      try {
+        const lensData = await loadLensGroup('eaaa05b3-54d0-4175-add2-2919882026dd');
+        setLenses(lensData);
+      } catch (err) {
+        console.error('Failed to load lenses', err);
       }
     };
 
-    checkPermissions();
-  }, [hasPermission, requestPermission]);
+    if (cameraActive) fetchLenses();
+  }, [cameraActive, loadLensGroup]);
 
-  if (device == null) return <NoCameraErrorView />;
-  if (!hasPermission) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Camera permission not granted.</Text>
-      </View>
-    );
-  }
-
-  // Your web app URL
-  const localServerUrl = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
+  console.log(lenses, 'lenses')
 
   return (
-    <View style={StyleSheet.absoluteFill}>
-      {/* Conditionally render the camera based on the state */}
-      {isCameraActive && (
-        <Camera 
-          style={StyleSheet.absoluteFill} 
-          device={device} 
-          isActive={isCameraActive} 
-          onError={(error) => {
-            console.error('Camera error: ', error);
-          }}
-        />
-      )}
-      
-      <WebView
-         source={{ uri: localServerUrl }}
-         style={styles.webview}
-         javaScriptEnabled={true}
-         domStorageEnabled={true}
-         onMessage={(event) => {
-           console.log('Message from WebView:', event.nativeEvent.data);
-           if (event.nativeEvent.data === 'open_camera') {
-             setCameraActive(true); // Activate the camera when the message is received
-           }
-         }}
-        onError={(syntheticEvent) => {
-          const { nativeEvent } = syntheticEvent;
-          console.error('WebView error: ', nativeEvent);
-        }}
-        onHttpError={(syntheticEvent) => {
-          const { nativeEvent } = syntheticEvent;
-          console.error('HTTP error: ', nativeEvent);
-        }}
-      />
-    </View>
+    <CameraKitContext apiToken="eyJhbGciOiJIUzI1NiIsImtpZCI6IkNhbnZhc1MyU0hNQUNQcm9kIiwidHlwIjoiSldUIn0.eyJhdWQiOiJjYW52YXMtY2FudmFzYXBpIiwiaXNzIjoiY2FudmFzLXMyc3Rva2VuIiwibmJmIjoxNzQ3MDMzMjY5LCJzdWIiOiIwYWEzYTgyZC05OGE4LTQ1YzYtYTFhMS0yYTYxYmQ4YjE4Yjh-U1RBR0lOR343Y2I4YjY2Ny02NWVhLTRhNDUtYjZlOS0xODU5NDU2ZGEyMmEifQ.qEVuo_I8GTBrvYHLmXF4m3a-RdI4mLWDtMhLAyKf1gc">
+      <View style={{ flex: 1 }}>
+        {!cameraActive ? (
+          <View style={styles.centered}>
+            <Text>Start Camera</Text>
+            <Button title="Open Camera" onPress={handleStartCamera} />
+            {error && <Text style={styles.error}>{error}</Text>}
+          </View>
+        ) : (
+          <>
+            <CameraPreviewView style={{ flex: 1 }} />
+            <FlatList
+              horizontal
+              data={lenses}
+              renderItem={({ item }) => {
+                const iconUrl = item.icons?.[0]?.imageUrl;
+                return (
+                  <Pressable onPress={() => applyLens(item.id)}>
+                    {iconUrl ? (
+                      <Image
+                        source={{ uri: iconUrl }}
+                        style={{ width: 60, height: 60 }}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={{ width: 60, height: 60, backgroundColor: '#ccc', justifyContent: 'center', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 10 }}>No Icon</Text>
+                      </View>
+                    )}
+                  </Pressable>
+                );
+              }}
+              keyExtractor={(item) => item.id}
+              style={{ position: 'absolute', bottom: 10 }}
+            />
+          </>
+        )}
+      </View>
+    </CameraKitContext>
   );
 }
 
 const styles = StyleSheet.create({
-  errorContainer: {
+  centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
   },
-  errorText: {
-    fontSize: 18,
-    color: '#ff0000',
-  },
-  webview: {
-    flex: 1, // Ensure the WebView takes the available space
+  error: {
+    marginTop: 10,
+    color: 'red',
   },
 });
-
-export default App;
