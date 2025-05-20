@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -12,7 +11,6 @@ import {
   StyleSheet,
   Alert,
   ToastAndroid,
-  NativeModules,
 } from 'react-native';
 import {
   CameraKitContext,
@@ -21,6 +19,7 @@ import {
   Lens,
 } from '@snap/camera-kit-react-native';
 import RNFS from 'react-native-fs';
+import RNShare from 'react-native-share';
 
 export default function App() {
   const { loadLensGroup, applyLens, takeSnapshot } = useCameraKit();
@@ -31,6 +30,7 @@ export default function App() {
   const [savedImageUri, setSavedImageUri] = useState<string | null>(null);
   const [showSavedImage, setShowSavedImage] = useState(false);
   const [cameraPosition, setCameraPosition] = useState<'front' | 'back'>('back');
+
 
   const toggleCamera = () => {
     setCameraPosition((prevPosition) => (prevPosition === 'back' ? 'front' : 'back'));
@@ -43,13 +43,11 @@ export default function App() {
           PermissionsAndroid.PERMISSIONS.CAMERA,
           PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
         ];
-
         if (Platform.Version >= 33) {
           permissions.push(PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES);
         } else {
           permissions.push(PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE);
         }
-
         const granted = await PermissionsAndroid.requestMultiple(permissions);
         return Object.values(granted).every((status) => status === PermissionsAndroid.RESULTS.GRANTED);
       }
@@ -75,11 +73,6 @@ export default function App() {
       const destPath = `${RNFS.DownloadDirectoryPath}/${fileName}`;
       const cleanUri = uri.replace('file://', '');
       await RNFS.copyFile(cleanUri, destPath);
-
-      if (Platform.OS === 'android') {
-        NativeModules?.MediaScannerConnection?.scanFile?.(destPath, 'image/jpeg');
-      }
-
       const fileUri = 'file://' + destPath;
       setSavedImageUri(fileUri);
       setShowSavedImage(true);
@@ -114,13 +107,28 @@ export default function App() {
         setError('Failed to load lenses');
       }
     };
-
     if (cameraActive) fetchLenses();
   }, [cameraActive]);
 
   const handleLensSelect = (lensId: string) => {
     applyLens(lensId);
     setActiveLensId(lensId);
+  };
+
+  const handleShare = async () => {
+    try {
+      if (!savedImageUri) return;
+      const options = {
+        title: 'Check out my photo!',
+        message: 'Check out this cool photo I took!',
+        url: savedImageUri,
+        type: 'image/jpeg',
+        failOnCancel: false,
+      };
+      await RNShare.open(options);
+    } catch (err) {
+      setError('Could not share image.');
+    }
   };
 
   return (
@@ -137,21 +145,18 @@ export default function App() {
             <CameraPreviewView
               style={{ flex: 1 }}
               cameraPosition={cameraPosition}
+              mirrorFramesHorizontally={false}
             />
-  
-            {/* Container to hold both buttons in a row */}
             <View style={styles.buttonsContainer}>
-              {/* Camera Switch Button */}
               <Pressable onPress={toggleCamera} style={styles.switchCameraButton}>
                 <Text style={styles.captureText}>🔄 Switch Camera</Text>
               </Pressable>
-  
-              {/* Capture Button */}
+
               <Pressable onPress={handleTakePhoto} style={styles.captureButton}>
                 <Text style={styles.captureText}>📸 Capture</Text>
               </Pressable>
             </View>
-  
+
             {lenses.length === 0 ? (
               <View style={styles.centered}>
                 <Text style={{ color: 'grey' }}>No lenses available</Text>
@@ -190,20 +195,25 @@ export default function App() {
             )}
           </>
         )}
-  
-        {/* Image Viewer Modal */}
         {showSavedImage && savedImageUri && (
           <View style={styles.imageModal}>
-            <Image source={{ uri: savedImageUri }} style={styles.fullScreenImage} resizeMode="contain" />
+            <Image
+              source={{ uri: savedImageUri }}
+              style={styles.fullScreenImage}
+              resizeMode="contain"
+            />
             <Pressable onPress={() => setShowSavedImage(false)} style={styles.closeButton}>
               <Text style={styles.closeButtonText}>Close</Text>
+            </Pressable>
+            <Pressable onPress={handleShare} style={styles.shareButton}>
+              <Text style={styles.shareButtonText}>Share</Text>
             </Pressable>
           </View>
         )}
       </View>
     </CameraKitContext>
   );
-  
+
 }
 
 const styles = StyleSheet.create({
@@ -231,7 +241,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 25,
-    marginLeft: 10, // Add margin between the buttons
+    marginLeft: 10,
   },
   captureText: {
     color: 'white',
@@ -297,6 +307,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   closeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+  },
+  shareButton: {
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: '#4CAF50',
+    borderRadius: 8,
+  },
+  shareButtonText: {
     color: '#fff',
     fontSize: 16,
   },
