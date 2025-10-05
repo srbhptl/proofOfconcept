@@ -14,7 +14,7 @@ if linkage != nil
   use_frameworks! :linkage => linkage.to_sym
 end
 
-target 'HairSegmentApp' do
+target 'poc' do
   config = use_native_modules!
 
   use_react_native!(
@@ -23,7 +23,7 @@ target 'HairSegmentApp' do
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
 
-  target 'HairSegmentAppTests' do
+  target 'pocTests' do
     inherit! :complete
     # Pods for testing
   end

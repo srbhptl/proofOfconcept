@@ -7,11 +7,11 @@
 #define TIMEOUT_SECONDS 600
 #define TEXT_TO_LOOK_FOR @"Welcome to React"
 
-@interface HairSegmentAppTests : XCTestCase
+@interface pocTests : XCTestCase
 
 @end
 
-@implementation HairSegmentAppTests
+@implementation pocTests
 
 - (BOOL)findSubviewInView:(UIView *)view matching:(BOOL (^)(UIView *view))test
 {

@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>HairSegmentApp</string>
+	<string>poc</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleGetInfoString</key>
@@ -36,7 +36,7 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string> to use for ar view of hair colors</string>
+	<string> to use for a view</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string></string>
 	<key>UILaunchStoryboardName</key>

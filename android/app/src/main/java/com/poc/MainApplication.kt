@@ -1,4 +1,4 @@
-package com.hairsegmentapp
+package com.poc
 
 import android.app.Application
 import com.facebook.react.PackageList
